@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gryd Sim · funded solar, battery and fleet flexibility</title>
+  <meta name="description" content="Interactive simulation of a fully funded home solar + battery under Gryd's subscription model, with real Octopus Agile prices, real weather, periods and a fleet view." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <a class="skip" href="#home">Skip to the simulation</a>
+
+  <!-- ===================== HERO ===================== -->
+  <header class="hero">
+    <div class="wrap">
+      <div class="topbar">
+        <div class="brandmark">Gryd <span>Sim</span></div>
+        <nav>
+          <a href="#home">One home</a>
+          <a href="#fleet">The fleet</a>
+          <a href="#how">How it works</a>
+        </nav>
+      </div>
+
+      <span class="eyebrow">Funded solar &amp; battery · real prices &amp; weather</span>
+      <h1>Solar and a battery, <b>provided at zero cost</b>. Optimised every half hour.</h1>
+      <p class="hero-lead">
+        Gryd owns the kit and pays the energy bills. The home pays one simple
+        subscription. This model shows what the home keeps, what Gryd earns, and
+        the flexibility a fleet of these homes can sell to the grid.
+      </p>
+
+      <div class="hero-figure">
+        <div class="stat">
+          <span class="label">What this home saves <span id="hero-unit">today</span></span>
+          <span class="num" id="hero-saving">£0.00</span>
+          <span class="hero-sub"><b id="hero-pct">0%</b> of a no-solar bill · <b id="hero-year">£0</b>/year</span>
+        </div>
+      </div>
+
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#home">See the numbers <span class="arrow">&rsaquo;</span></a>
+        <a class="btn btn-secondary" href="#fleet">Fleet flexibility</a>
+      </div>
+
+      <img class="hero-photo" src="assets/hero-home.jpg"
+           alt="A modern UK new-build home with rooftop solar and a wall-mounted home battery at golden hour"
+           onerror="this.remove()" />
+    </div>
+  </header>
+
+  <!-- ===================== CONTROLS ===================== -->
+  <div class="controls" id="controls" role="region" aria-label="Live controls">
+    <div class="wrap">
+      <div class="controls-head">
+        <span class="eyebrow" style="margin:0;">Live controls</span>
+        <span class="src" id="data-source">Loading…</span>
+      </div>
+      <div class="control-grid">
+        <div class="field">
+          <label for="period">Period <span class="val" id="period-val"></span></label>
+          <select id="period" autocomplete="off">
+            <option value="day">A day</option>
+            <option value="week">A week</option>
+            <option value="summer">Summer 2025</option>
+            <option value="winter">Winter 2026</option>
+            <option value="year">Whole year 2025</option>
+          </select>
+        </div>
+        <div class="field" id="date-field">
+          <label for="date">Date <span class="val" id="date-val"></span></label>
+          <select id="date" autocomplete="off"></select>
+        </div>
+        <div class="field">
+          <label for="region">Region <span class="val" id="region-val">London</span></label>
+          <select id="region" autocomplete="off"></select>
+        </div>
+        <div class="field">
+          <label for="solar">Solar array <span class="val" id="solar-val">4.0 kWp</span></label>
+          <input type="range" autocomplete="off" id="solar" min="0" max="8" step="0.25" value="4.0" />
+        </div>
+        <div class="field">
+          <label for="azimuth">Panel facing <span class="val" id="azimuth-val">South</span></label>
+          <input type="range" autocomplete="off" id="azimuth" min="-90" max="90" step="5" value="0" />
+        </div>
+        <div class="field">
+          <label for="tilt">Roof tilt <span class="val" id="tilt-val">35°</span></label>
+          <input type="range" autocomplete="off" id="tilt" min="5" max="55" step="1" value="35" />
+        </div>
+        <div class="field">
+          <label for="battery">Battery <span class="val" id="battery-val">5.4 kWh</span></label>
+          <input type="range" autocomplete="off" id="battery" min="3" max="14" step="0.1" value="5.4" />
+        </div>
+        <div class="field">
+          <label for="load">Daily use <span class="val" id="load-val">10.0 kWh</span></label>
+          <input type="range" autocomplete="off" id="load" min="5" max="25" step="0.5" value="10" />
+        </div>
+        <div class="field">
+          <label for="sub">Saving floor <span class="val" id="sub-val">15%</span></label>
+          <input type="range" autocomplete="off" id="sub" min="5" max="60" step="1" value="15" />
+        </div>
+        <div class="field">
+          <label for="alpha">Value split α <span class="val" id="alpha-val">balanced</span></label>
+          <input type="range" autocomplete="off" id="alpha" class="alpha" min="0" max="1" step="0.01" value="0.5" />
+        </div>
+        <div class="field">
+          <label for="flex">Flex price <span class="val" id="flex-val">£60/MW/h</span></label>
+          <input type="range" autocomplete="off" id="flex" min="0" max="300" step="5" value="60" />
+        </div>
+        <div class="field">
+          <label for="homes">Fleet homes <span class="val" id="homes-val">20</span></label>
+          <input type="range" autocomplete="off" id="homes" min="1" max="100" step="1" value="20" />
+        </div>
+        <div class="field">
+          <span class="field-tag">Solar source</span>
+          <label class="check"><input type="checkbox" id="weather" autocomplete="off" checked /> Real weather</label>
+        </div>
+        <div class="field">
+          <span class="field-tag">Forecast</span>
+          <label class="check"><input type="checkbox" id="mpc" autocomplete="off" /> Show solar forecast</label>
+        </div>
+        <div class="field" id="ferror-field">
+          <label for="ferror">Forecast error <span class="val" id="ferror-val">30%</span></label>
+          <input type="range" autocomplete="off" id="ferror" min="0" max="80" step="5" value="30" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== ONE HOME ===================== -->
+  <section class="section-cream section-pad" id="home">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">One funded home</span>
+        <h2>What the home keeps, what Gryd earns.</h2>
+        <p id="alpha-explainer">
+          Slide the value split. At α = 0 the home keeps all the daily value, up to
+          the size of its own bill; at α = 1 the home keeps only its promised floor
+          and Gryd keeps the rest. The two always add up to the same total.
+        </p>
+      </div>
+
+      <div class="value-cards">
+        <div class="vcard home">
+          <span class="eyebrow">What this home saves <span class="per" id="home-per">today</span></span>
+          <div><span class="big" id="home-saving">£0.00</span><span class="pct" id="home-pct">0%</span></div>
+          <div class="sub">Subscription of <b id="home-sub">£0.00</b> instead of a <b id="home-bill">£0.00</b> grid bill · about <b id="home-year">£0</b>/year.</div>
+          <div class="breakdown">
+            <div class="row"><span>Grid bill with no solar or battery</span><b id="bd-bill">£0.00</b></div>
+            <div class="row"><span>Gryd subscription</span><b id="bd-sub">£0.00</b></div>
+            <div class="row"><span>Saving vs that bill</span><b id="bd-save">£0.00</b></div>
+          </div>
+        </div>
+
+        <div class="vcard gryd">
+          <span class="eyebrow">What Gryd earns <span class="per" id="gryd-per">today</span></span>
+          <div><span class="big" id="gryd-margin">£0.00</span></div>
+          <div class="sub">Margin after the energy it buys, battery wear and hardware · about <b id="gryd-year">£0</b>/year.</div>
+          <div class="breakdown">
+            <div class="row"><span>Subscription in</span><b id="bd-subin">£0.00</b></div>
+            <div class="row"><span>Flexibility income</span><b id="bd-flex">£0.00</b></div>
+            <div class="row"><span>Energy, net of export</span><b id="bd-energy">£0.00</b></div>
+            <div class="row"><span>Hardware (per day)</span><b id="bd-hw">£0.00</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note-banner" id="neg-banner">
+        <span class="dot"></span>
+        <span id="neg-text"></span>
+      </div>
+
+      <div class="chart-card" style="margin-top:28px;">
+        <div class="chart-title">
+          <h3>One day, half hour by half hour</h3>
+          <span class="hint" id="day-tag">Real Octopus Agile prices · real sun</span>
+        </div>
+        <div id="home-chart"></div>
+        <div class="legend" id="home-legend"></div>
+      </div>
+
+      <div class="dual">
+        <div class="chart-card">
+          <div class="chart-title">
+            <h3>Saving over the period</h3>
+            <span class="hint" id="period-hint"></span>
+          </div>
+          <div id="period-chart"></div>
+          <div class="legend" id="period-legend"></div>
+        </div>
+        <div class="chart-card" id="mpc-card">
+          <div class="chart-title">
+            <h3>Solar forecast vs actual</h3>
+            <span class="hint" id="mpc-hint">turn on “Show solar forecast”</span>
+          </div>
+          <div id="mpc-chart"></div>
+          <p class="mpc-note" id="mpc-note" style="display:none;"></p>
+          <div class="legend" id="mpc-legend"></div>
+        </div>
+      </div>
+
+      <div class="chart-card cfo-card" id="cfo">
+        <div class="chart-title">
+          <h3>Full breakdown</h3>
+          <span class="hint" id="cfo-hint">every line behind the headline</span>
+        </div>
+        <div class="cfo">
+          <div class="cfo-group">
+            <h4>Counterfactuals</h4>
+            <div class="cfo-row"><span>Bill with no solar or battery</span><b id="cfo-noasset">£0</b></div>
+            <div class="cfo-row"><span>Bill with solar + a dumb battery</span><b id="cfo-dumb">£0</b></div>
+            <div class="cfo-row"><span>Smart-dispatch uplift over dumb</span><b id="cfo-uplift">£0</b></div>
+          </div>
+          <div class="cfo-group">
+            <h4>Gryd P&amp;L</h4>
+            <div class="cfo-row"><span>Subscription in</span><b id="cfo-subin">£0</b></div>
+            <div class="cfo-row"><span>Flexibility income</span><b id="cfo-flex">£0</b></div>
+            <div class="cfo-row"><span>Import cost</span><b id="cfo-import">£0</b></div>
+            <div class="cfo-row"><span>Export revenue</span><b id="cfo-export">£0</b></div>
+            <div class="cfo-row"><span>Standing charge</span><b id="cfo-standing">£0</b></div>
+            <div class="cfo-row"><span>Battery degradation</span><b id="cfo-degr">£0</b></div>
+            <div class="cfo-row"><span>Hardware amortisation</span><b id="cfo-hw">£0</b></div>
+            <div class="cfo-row total"><span>Gryd margin</span><b id="cfo-gryd">£0</b></div>
+          </div>
+          <div class="cfo-group">
+            <h4>Home &amp; battery</h4>
+            <div class="cfo-row"><span>Subscription paid</span><b id="cfo-sub">£0</b></div>
+            <div class="cfo-row total"><span>Home saving (funded)</span><b id="cfo-home">£0</b></div>
+            <div class="cfo-row"><span>Battery discharged</span><b id="cfo-throughput">0 kWh</b></div>
+            <div class="cfo-row"><span>Equivalent full cycles</span><b id="cfo-cycles">0</b></div>
+            <div class="cfo-row"><span>Battery start → end (rep. day)</span><b id="cfo-soc">0 → 0</b></div>
+            <div class="cfo-row"><span>Daily value pool V</span><b id="cfo-value">£0</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FLEET ===================== -->
+  <section class="section-maroon section-pad" id="fleet">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="eyebrow">The fleet · a virtual power plant</span>
+        <h2>Flexibility the grid can call on.</h2>
+        <p>
+          One home is a few kilowatts. Pool many funded homes and the same
+          constrained batteries become a dispatchable block of power Gryd can sell
+          into the evening peak. Homes vary in size, region and panel direction,
+          generated from a fixed seed so the fleet is reproducible.
+        </p>
+      </div>
+
+      <div class="fleet-grid">
+        <div class="fleet-stats">
+          <div class="fleet-stat flex">
+            <div class="label">Dispatchable at the evening peak</div>
+            <div class="num" id="fleet-flex">0 <small>kW</small></div>
+          </div>
+          <div class="fleet-stat">
+            <div class="label">Flexibility income <span class="per2">/ day</span></div>
+            <div class="num" id="fleet-flexrev">£0</div>
+          </div>
+          <div class="fleet-stat">
+            <div class="label">Gryd margin <span class="per2">/ day</span></div>
+            <div class="num" id="fleet-gryd">£0</div>
+          </div>
+          <div class="fleet-stat">
+            <div class="label">Homes save <span class="per2">/ day</span> · <span id="fleet-year">£0</span>/yr</div>
+            <div class="num" id="fleet-home">£0</div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">
+            <h3>Aggregate flexibility across the day</h3>
+            <span class="hint" id="fleet-hint"></span>
+          </div>
+          <div id="fleet-chart"></div>
+          <div class="legend" id="fleet-legend"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="foot" id="how">
+    <div class="wrap">
+      <div>
+        <h4>How this maps to Gryd</h4>
+        <p>
+          The funded asset moves the optimisation boundary. The home gets a fixed
+          discount on the bill it would otherwise pay; Gryd owns the tariff
+          exposure, battery wear and hardware, and keeps the export and flexibility
+          value. Pooled across homes, that flexibility is something Gryd can sell.
+        </p>
+      </div>
+      <div>
+        <h4>Data &amp; method</h4>
+        <p id="foot-data">Octopus Agile half-hourly prices, inc VAT. Solar irradiance from Open-Meteo (hourly, applied across each half hour).</p>
+        <p class="assume">Defaults follow Gryd's real spec (~5.4 kWh battery, ~4 kWp); hardware capex scales with system size. The home annual sums every available day of 2025 (DST transition days excluded); fleet annual figures are scaled from representative days and labelled estimates.</p>
+      </div>
+      <div>
+        <h4>Assumptions</h4>
+        <p class="assume">Hardware £6,500 over Gryd's 25-year guarantee + 2.5%/yr upkeep (covers a mid-life battery swap). Round-trip efficiency 88%. Standing charge £0.60/day. Flex is an evening-window availability estimate capped at inverter power. Home photo is an AI-generated illustration.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="vendor/gsap.min.js"></script>
+  <script src="sim-core.js"></script>
+  <script src="charts.js"></script>
+  <script src="visuals.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
