@@ -47,13 +47,10 @@ Regenerate the bundled dataset (fetches a year of Agile prices and weather):
 node build_data.js
 ```
 
-## Deploy to Netlify
+## Hosting
 
-It is a static site. Drag the `gryd-sim` folder onto
-[app.netlify.com/drop](https://app.netlify.com/drop), or connect the repo with an
-empty build command and the project root as the publish directory. The bundled
-dataset means the deployed site works even with no network. `netlify.toml` is
-included.
+It is a static site, so any static host works (or just serve the folder
+yourself). The bundled dataset means it runs with no network.
 
 ## The model
 
