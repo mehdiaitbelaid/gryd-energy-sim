@@ -75,11 +75,11 @@
     return s;
   }
 
-  function windowBand(win) {
+  function windowBand(win, label) {
     if (!win) return "";
     const a = hx(win[0]), b = hx(win[1]);
-    return `<rect x="${a}" y="${y0}" width="${b - a}" height="${y1 - y0}" fill="${COL.band}"/>` +
-      `<text x="${(a + b) / 2}" y="${y0 + 13}" text-anchor="middle" class="axband">evening flex</text>`;
+    return `<rect x="${a}" y="${y0}" width="${b - a}" height="${y1 - y0}" fill="rgba(253,87,50,0.13)" stroke="rgba(253,87,50,0.4)" stroke-width="1" stroke-dasharray="3 3"/>` +
+      `<text x="${(a + b) / 2}" y="${y0 + 13}" text-anchor="middle" class="axband">${label || "evening flex"}</text>`;
   }
 
   const STYLE = `<style>
@@ -94,46 +94,37 @@
   }
 
   // single-home chart
+  // Four lines tell the story: free solar (amber) fills the battery (teal) at
+  // midday, the battery covers the expensive evening (red price, right axis), so
+  // grid import (dashed) stays low when power is dear. Load, export, curtailment
+  // and the negative-price dots are left to the breakdown to keep this readable.
   function renderHome(el, d) {
     const hours = hoursOf(d.price.length);
-    const pmaxRaw = Math.max(0.1, ...d.solar, ...d.load, ...d.import, ...d.export, ...(d.curtail || [0]));
-    const pmax = pmaxRaw * 1.12;
+    const pmax = Math.max(0.1, ...d.solar, ...d.import) * 1.15;
     const prMin = Math.min(0, ...d.price);
     const prMax = Math.max(0.05, ...d.price) * 1.12;
     const yP = (v) => lerpY(v, 0, pmax);
     const yPr = (v) => lerpY(v, prMin, prMax);
     const ySoc = (v) => lerpY(v, 0, d.socCap);
 
-    let s = svgOpen("One home over the day: price, solar, load, battery, grid import and export");
-    s += windowBand(d.flexWindow);
+    let s = svgOpen("One home over the day: price, solar, battery charge and grid import");
+    s += windowBand(d.flexWindow, "evening peak");
     s += yGrid(pmax, "kW", "l");
     s += yGrid(prMax, "£/kWh", "r");
     s += timeAxis();
     if (prMin < 0) { const yz = yPr(0); s += `<line x1="${x0}" y1="${yz}" x2="${x1}" y2="${yz}" stroke="rgba(135,40,35,0.3)" stroke-dasharray="3 3"/>`; }
 
-    // battery charge as a faint backdrop area
-    s += `<path d="${area(pts(hours, d.soc), ySoc)}" fill="rgba(43,166,160,0.12)" stroke="none"/>`;
-    s += `<path d="${line(pts(hours, d.soc), ySoc)}" fill="none" stroke="${COL.soc}" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.85"/>`;
-    // solar generation area
+    // battery charge (the actor): area + solid line
+    s += `<path d="${area(pts(hours, d.soc), ySoc)}" fill="rgba(43,166,160,0.14)" stroke="none"/>`;
+    s += `<path d="${line(pts(hours, d.soc), ySoc)}" fill="none" stroke="${COL.soc}" stroke-width="2"/>`;
+    // solar (the free resource): area + line
     s += `<path d="${area(pts(hours, d.solar), yP)}" fill="rgba(232,163,61,0.22)" stroke="none"/>`;
     s += `<path d="${line(pts(hours, d.solar), yP)}" fill="none" stroke="${COL.solar}" stroke-width="2"/>`;
-    // curtailed solar (surplus that could not be stored or paid to export)
-    if (d.curtail && Math.max.apply(null, d.curtail) > 1e-6) {
-      s += `<path d="${area(pts(hours, d.curtail), yP)}" fill="rgba(253,87,50,0.16)" stroke="none"/>`;
-      s += `<path d="${line(pts(hours, d.curtail), yP)}" fill="none" stroke="${COL.curtail}" stroke-width="1.5" stroke-dasharray="2 2"/>`;
-    }
-    // grid import (dashed, to read apart from the solid load line) and export
-    s += `<path d="${line(pts(hours, d.import), yP)}" fill="none" stroke="${COL.imp}" stroke-width="1.8" stroke-dasharray="5 3"/>`;
-    s += `<path d="${line(pts(hours, d.export), yP)}" fill="none" stroke="${COL.exp}" stroke-width="1.8"/>`;
-    // household load
-    s += `<path d="${line(pts(hours, d.load), yP)}" fill="none" stroke="${COL.load}" stroke-width="2"/>`;
-    // price (protagonist) on right axis, draw-on animatable
+    // grid import (the cost you avoid): dashed
+    s += `<path d="${line(pts(hours, d.import), yP)}" fill="none" stroke="${COL.imp}" stroke-width="1.6" stroke-dasharray="5 3"/>`;
+    // price (protagonist) on the right axis, draw-on animatable
     const pricePath = line(pts(hours, d.price), yPr);
-    s += `<path id="price-path" d="${pricePath}" fill="none" stroke="${COL.price}" stroke-width="2.6" stroke-linejoin="round"/>`;
-    // negative-price markers
-    if (d.negativeSlots && d.negativeSlots.length) {
-      for (const t of d.negativeSlots) s += `<circle cx="${hx(hours[t])}" cy="${yPr(d.price[t])}" r="3" fill="${COL.price}"/>`;
-    }
+    s += `<path id="price-path" d="${pricePath}" fill="none" stroke="${COL.price}" stroke-width="2.8" stroke-linejoin="round"/>`;
     s += "</svg>";
     el.innerHTML = s;
   }

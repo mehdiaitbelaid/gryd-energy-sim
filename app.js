@@ -265,7 +265,7 @@
     const item = (c, label, line) => `<span class="k">${sw(c, line)}${label}</span>`;
     const C = Ch.COL;
     const dash = (c, label) => `<span class="k"><span class="sw dash" style="border-color:${c}"></span>${label}</span>`;
-    setHTML("home-legend", item(C.price, "Price", true) + item(C.solar, "Solar") + item(C.load, "Load", true) + dash(C.soc, "Battery charge") + dash(C.imp, "Grid import") + item(C.exp, "Grid export", true) + dash(C.curtail, "Curtailed"));
+    setHTML("home-legend", item(C.price, "Price", true) + item(C.solar, "Solar") + item(C.soc, "Battery charge", true) + dash(C.imp, "Grid import"));
     setHTML("fleet-legend", item(C.exp, "Dispatchable flexibility", true) + item("rgba(253,87,50,0.18)", "Evening flex window"));
     setHTML("period-legend", item("var(--green)", "Home saving") + item("var(--orange)", "Gryd margin"));
     setHTML("mpc-legend", item(C.price, "Real Agile price", true) + item(C.price, "Forecast price (dashed)", true) + item(C.soc, "Battery charge: real vs forecast", true));
