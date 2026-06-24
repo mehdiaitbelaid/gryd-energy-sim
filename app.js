@@ -36,22 +36,27 @@
   function forecastPricesFor(date, region, k) {
     const weekend = isWeekend(date);
     const idx = DATA.dates.indexOf(date);
-    const imp = [], exp = [];
+    const imp = [], exp = [], ghi = [];
     for (let j = idx - 1; j >= 0 && imp.length < k; j--) {
       const d = DATA.dates[j];
       if (isWeekend(d) !== weekend) continue;
       const r = DATA.regions[region] && DATA.regions[region][d];
-      if (r) { imp.push(r.i); exp.push(r.e); }
+      if (!r) continue;
+      imp.push(r.i); exp.push(r.e);
+      if (DATA.weather[d]) ghi.push(DATA.weather[d].ghi);
     }
     if (!imp.length) return null;
-    return { import: S.averageProfiles(imp), export: S.averageProfiles(exp), days: imp.length };
+    return {
+      import: S.averageProfiles(imp), export: S.averageProfiles(exp),
+      ghi: ghi.length ? S.averageProfiles(ghi) : null, days: imp.length,
+    };
   }
 
   // formatters
   const gbpA = (v) => (Math.abs(v) < 100 ? (v < 0 ? "-£" + Math.abs(v).toFixed(2) : "£" + v.toFixed(2)) : (v < 0 ? "-£" + Math.abs(v).toFixed(0) : "£" + v.toFixed(0)));
   const gbp = (v) => (v < 0 ? "-£" + Math.abs(v).toFixed(2) : "£" + v.toFixed(2));
   const gbp0 = (v) => (v < 0 ? "-£" + Math.abs(v).toFixed(0) : "£" + Math.round(v));
-  const signed = (v) => (v >= 0 ? "+" + gbpA(v) : "-£" + Math.abs(v).toFixed(2));
+  const signed = (v) => (v >= 0 ? "+" : "-") + gbpA(Math.abs(v));
   const pct = (v) => Math.round(v) + "%";
   const azName = (a) => (a <= -68 ? "East" : a <= -23 ? "South-East" : a < 23 ? "South" : a < 68 ? "South-West" : "West");
   const doy = (s) => { const d = new Date(s + "T00:00:00Z"); return Math.floor((d - new Date(Date.UTC(d.getUTCFullYear(), 0, 0))) / 86400000); };
@@ -202,8 +207,8 @@
       tween($("mpc-cost"), pm.forecastCostGbp, gbpA);
       tween($("mpc-gap"), Math.max(0, pm.gapGbp), gbpA);
       V.renderPriceMpc($("mpc-chart"), { actualPrice: rep.importPrice, fcPrice: pm.forecastImport, socPerfect: pm.perfectSoc, socForecast: pm.forecastSoc, socCap: rep.battery.eCap });
-      setHTML("mpc-note", `The battery trades on a price forecast (the average of recent ${isWeekend(dates[Math.floor((nDays - 1) / 2)]) ? "weekend days" : "weekdays"}), then pays the real bill. Trading the forecast costs <b>${gbpA(Math.max(0, pm.gapGbp))}</b> more than knowing the prices, which is the value of Agile's day-ahead publication.`);
-      setText("mpc-hint", "forecast from the last " + state.histDays + " similar days");
+      setHTML("mpc-note", `The battery trades on a forecast of both prices and sunlight, averaged from recent ${isWeekend(dates[Math.floor((nDays - 1) / 2)]) ? "weekend days" : "weekdays"}, then pays the real bill. Trading on the forecast costs <b>${gbpA(Math.max(0, pm.gapGbp))}</b> more than knowing the day, which is the value of day-ahead prices and a good weather forecast.`);
+      setText("mpc-hint", "prices + weather forecast from the last " + state.histDays + (state.histDays === 1 ? " similar day" : " similar days"));
     } else {
       stats.style.display = "none";
       note.style.display = "none";
@@ -216,13 +221,14 @@
     setText("cfo-noasset", gbpA(t.noAssetBillGbp));
     setText("cfo-dumb", gbpA(t.dumbBillGbp));
     setText("cfo-uplift", gbpA(t.dispatchSavingGbp));
-    setText("cfo-subin", gbpA(t.subscriptionGbp));
-    setText("cfo-flex", gbpA(t.flexRevenueGbp));
-    setText("cfo-import", gbpA(t.importCostGbp));
-    setText("cfo-export", gbpA(t.exportRevenueGbp));
-    setText("cfo-standing", gbpA(t.standingGbp));
-    setText("cfo-degr", gbpA(t.degradationGbp));
-    setText("cfo-hw", gbpA(t.hardwareGbp));
+    // Income as +, expenses as - so the lines visibly sum to the margin.
+    setText("cfo-subin", signed(t.subscriptionGbp));
+    setText("cfo-flex", signed(t.flexRevenueGbp));
+    setText("cfo-import", signed(-t.importCostGbp));
+    setText("cfo-export", signed(t.exportRevenueGbp));
+    setText("cfo-standing", signed(-t.standingGbp));
+    setText("cfo-degr", signed(-t.degradationGbp));
+    setText("cfo-hw", signed(-t.hardwareGbp));
     setText("cfo-gryd", gbpA(t.grydMarginGbp));
     setText("cfo-sub", gbpA(t.subscriptionGbp));
     setText("cfo-home", gbpA(t.homeSavingGbp) + " (" + Math.round(homePct) + "%)");

@@ -416,12 +416,14 @@
     return assembleSchedule(load, solar, actCharge, actDischarge, importPrice, exportPrice, bat);
   }
 
-  // Plan the day's dispatch on forecast prices (e.g. an average of recent days),
-  // then settle the bill on the real prices. Models trading without day-ahead
-  // Agile: you act on a price guess and live with the actual outcome.
-  function dispatchOnForecast(load, solar, importPrice, exportPrice, fcImport, fcExport, bat, opts) {
+  // Plan the day on forecast prices AND forecast solar (both from history), then
+  // settle on the real prices and real sun. Models trading without day-ahead
+  // Agile and without a perfect weather forecast: you act on guesses and live
+  // with the actual outcome. fcSolar defaults to the real solar if not given.
+  function dispatchOnForecast(load, solar, importPrice, exportPrice, fcSolar, fcImport, fcExport, bat, opts) {
     const degr = (opts && opts.degradationGbpPerMwh) || 20.0;
-    const { charge, discharge } = greedyPlan(load, solar, fcImport, fcExport, bat, bat.initialSoc, bat.initialSoc, degr);
+    const planSolar = fcSolar || solar;
+    const { charge, discharge } = greedyPlan(load, planSolar, fcImport, fcExport, bat, bat.initialSoc, bat.initialSoc, degr);
     return assembleSchedule(load, solar, charge, discharge, importPrice, exportPrice, bat);
   }
 
@@ -626,13 +628,24 @@
     // perfect plan. The gap is the value of having published day-ahead prices.
     let priceMpc = null;
     if (opts && opts.priceForecast && opts.priceForecast.import) {
-      const fcImp = opts.priceForecast.import;
-      const fcExp = opts.priceForecast.export || exportPrice;
-      const fcSch = dispatchOnForecast(load, solar, importPrice, exportPrice, fcImp, fcExp, bat, { degradationGbpPerMwh: econ.degradationGbpPerMwh });
+      const pf = opts.priceForecast;
+      const fcImp = pf.import;
+      const fcExp = pf.export || exportPrice;
+      // Forecast the day's solar too, from forecast weather run through this
+      // home's orientation. Only meaningful when the real-weather model is on.
+      let fcSolar = solar;
+      if (opts.useWeather && pf.ghi && pf.ghi.length === SLOTS) {
+        fcSolar = buildProfiles({
+          dayOfYear, solarKwp: cfg.solarKwp, dailyLoadKwh: cfg.dailyLoadKwh,
+          clearSkyFactor: cfg.clearSkyFactor, azimuthDeg: cfg.azimuthDeg, tiltDeg: cfg.tiltDeg, ghi: pf.ghi,
+        }).solar;
+      }
+      const fcSch = dispatchOnForecast(load, solar, importPrice, exportPrice, fcSolar, fcImp, fcExp, bat, { degradationGbpPerMwh: econ.degradationGbpPerMwh });
       const fcM = rawMetrics(load, solar, fcSch, importPrice, exportPrice, econ, bat);
       priceMpc = {
         forecastImport: fcImp,
         forecastExport: fcExp,
+        forecastSolar: fcSolar,
         perfectCostGbp: optM.operatingCostGbp,
         forecastCostGbp: fcM.operatingCostGbp,
         gapGbp: fcM.operatingCostGbp - optM.operatingCostGbp,
