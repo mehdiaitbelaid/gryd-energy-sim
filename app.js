@@ -25,8 +25,27 @@
     period: "day", date: null, region: "C",
     solarKwp: 4.0, azimuthDeg: 0, tiltDeg: 35, batteryKwh: 5.4, dailyLoadKwh: 10,
     nHomes: 20, subPct: 15, alpha: 0.5, flexPrice: 60,
-    useWeather: true, useMpc: false, forecastError: 0.3,
+    useWeather: true, useMpc: false, histDays: 7,
   };
+
+  const isWeekend = (s) => { const d = new Date(s + "T00:00:00Z").getUTCDay(); return d === 0 || d === 6; };
+
+  // Forecast a day's prices from the last k days of the SAME type (weekday vs
+  // weekend), averaged half hour by half hour. This is the strategy that worked
+  // best in the Piclo project.
+  function forecastPricesFor(date, region, k) {
+    const weekend = isWeekend(date);
+    const idx = DATA.dates.indexOf(date);
+    const imp = [], exp = [];
+    for (let j = idx - 1; j >= 0 && imp.length < k; j--) {
+      const d = DATA.dates[j];
+      if (isWeekend(d) !== weekend) continue;
+      const r = DATA.regions[region] && DATA.regions[region][d];
+      if (r) { imp.push(r.i); exp.push(r.e); }
+    }
+    if (!imp.length) return null;
+    return { import: S.averageProfiles(imp), export: S.averageProfiles(exp), days: imp.length };
+  }
 
   // formatters
   const gbpA = (v) => (Math.abs(v) < 100 ? (v < 0 ? "-£" + Math.abs(v).toFixed(2) : "£" + v.toFixed(2)) : (v < 0 ? "-£" + Math.abs(v).toFixed(0) : "£" + v.toFixed(0)));
@@ -91,7 +110,14 @@
     const wantMpc = state.useMpc && (state.period === "day" || state.period === "week");
     const econ = economics(), cfg = config(), alpha = state.alpha, useWeather = state.useWeather;
 
-    const hp = S.runPeriod(homeDays(dates), { config: cfg, economics: econ, alpha, useWeather, mpc: wantMpc ? { forecastError: state.forecastError, seed: MPC_SEED } : null });
+    // The MPC comparison runs on the representative day; forecast its prices from history.
+    let priceForecast = null;
+    if (wantMpc) {
+      const repDate = dates[Math.floor((dates.length - 1) / 2)];
+      priceForecast = forecastPricesFor(repDate, state.region, state.histDays);
+    }
+
+    const hp = S.runPeriod(homeDays(dates), { config: cfg, economics: econ, alpha, useWeather, priceForecast });
     const fp = S.runFleetPeriod(fleetDays(dates), { nHomes: state.nHomes, primaryRegion: state.region, economics: econ, alpha, useWeather, sampleDays: 24 });
 
     const yearDates = DATA.dates.filter((d) => d.slice(0, 4) === "2025");
@@ -165,18 +191,24 @@
     Ch.renderFleet($("fleet-chart"), { flex: big ? agg.totalFlex.map((v) => v / 1000) : agg.totalFlex, flexWindow: win, peakIdx, unit: big ? "MW" : "kW" });
     setText("fleet-hint", "capped at inverter power · " + win[0] + ":00 to " + win[1] + ":00 shaded");
 
-    // Solar forecast card: the widening band is the visual; the dispatch cost of
-    // getting the forecast wrong is ~£0 because Agile prices are known a day ahead.
-    const note = $("mpc-note");
-    if (rep.mpc) {
+    // Price-forecast MPC card: trade on prices forecast from recent same-type
+    // days (the Piclo strategy), settle on real prices, compare to perfect.
+    const stats = $("mpc-stats"), note = $("mpc-note");
+    const pm = rep.priceMpc;
+    if (pm) {
+      stats.style.display = "";
       note.style.display = "";
-      V.renderForecast($("mpc-chart"), { solar: rep.solar, sigma: state.forecastError, socPerfect: rep.mpc.perfectSchedule.soc, socMpc: rep.mpc.mpcSchedule.soc, socCap: rep.battery.eCap });
-      setHTML("mpc-note", `Dispatch cost of this forecast error: <b>~${gbpA(Math.max(0, rep.mpc.gapGbp))}</b>. Octopus Agile prices are set a day ahead, so a wrong solar forecast barely changes the battery's plan. Forecast accuracy matters most when committing the fleet's flexibility to the grid.`);
-      setText("mpc-hint", "band = forecast uncertainty, widening through the day");
+      tween($("mpc-perfect"), pm.perfectCostGbp, gbpA);
+      tween($("mpc-cost"), pm.forecastCostGbp, gbpA);
+      tween($("mpc-gap"), Math.max(0, pm.gapGbp), gbpA);
+      V.renderPriceMpc($("mpc-chart"), { actualPrice: rep.importPrice, fcPrice: pm.forecastImport, socPerfect: pm.perfectSoc, socForecast: pm.forecastSoc, socCap: rep.battery.eCap });
+      setHTML("mpc-note", `The battery trades on a price forecast (the average of recent ${isWeekend(dates[Math.floor((nDays - 1) / 2)]) ? "weekend days" : "weekdays"}), then pays the real bill. Trading the forecast costs <b>${gbpA(Math.max(0, pm.gapGbp))}</b> more than knowing the prices, which is the value of Agile's day-ahead publication.`);
+      setText("mpc-hint", "forecast from the last " + state.histDays + " similar days");
     } else {
+      stats.style.display = "none";
       note.style.display = "none";
       $("mpc-chart").innerHTML = "";
-      setText("mpc-hint", state.useMpc ? "shown for a day or a week" : "turn on “Show solar forecast”");
+      setText("mpc-hint", state.useMpc ? "shown for a day or a week" : "turn on “Forecast prices (MPC)”");
     }
 
     // Full breakdown (CFO view): every line item over the period.
@@ -226,10 +258,11 @@
     const sw = (c, line) => `<span class="sw${line ? " line" : ""}" style="${line ? "border-color" : "background"}:${c}"></span>`;
     const item = (c, label, line) => `<span class="k">${sw(c, line)}${label}</span>`;
     const C = Ch.COL;
-    setHTML("home-legend", item(C.price, "Price", true) + item(C.solar, "Solar") + item(C.load, "Load", true) + item(C.soc, "Battery charge") + item(C.imp, "Grid import", true) + item(C.exp, "Grid export", true) + item(C.curtail, "Curtailed", true));
+    const dash = (c, label) => `<span class="k"><span class="sw dash" style="border-color:${c}"></span>${label}</span>`;
+    setHTML("home-legend", item(C.price, "Price", true) + item(C.solar, "Solar") + item(C.load, "Load", true) + dash(C.soc, "Battery charge") + dash(C.imp, "Grid import") + item(C.exp, "Grid export", true) + dash(C.curtail, "Curtailed"));
     setHTML("fleet-legend", item(C.exp, "Dispatchable flexibility", true) + item("rgba(253,87,50,0.18)", "Evening flex window"));
     setHTML("period-legend", item("var(--green)", "Home saving") + item("var(--orange)", "Gryd margin"));
-    setHTML("mpc-legend", item(C.solar, "Solar (band = forecast error)", true) + item(C.soc, "Battery: perfect (solid) vs forecast (dashed)", true));
+    setHTML("mpc-legend", item(C.price, "Real Agile price", true) + item(C.price, "Forecast price (dashed)", true) + item(C.soc, "Battery charge: real vs forecast", true));
   }
 
   function heroIntro() {
@@ -265,7 +298,7 @@
       bindRange("homes", "nHomes", (v) => v + "", true);
       // Forecast error: the slider is a percent, the engine wants a fraction.
       const ferrEl = $("ferror"), ferrOut = $("ferror-val");
-      const ferrUpdate = () => { state.forecastError = parseFloat(ferrEl.value) / 100; const l = Math.round(state.forecastError * 100) + "%"; ferrOut.textContent = l; ferrEl.setAttribute("aria-valuetext", l); };
+      const ferrUpdate = () => { state.histDays = parseInt(ferrEl.value, 10); const l = state.histDays + (state.histDays === 1 ? " day" : " days"); ferrOut.textContent = l; ferrEl.setAttribute("aria-valuetext", l); };
       ferrEl.addEventListener("input", () => { ferrUpdate(); compute(); });
       ferrUpdate();
 

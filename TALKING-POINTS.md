@@ -34,12 +34,13 @@ Eight things to speak from. Each is backed by something on screen.
    from representative days and labelled an estimate. This gives a yearly saving to
    quote, not just a single day.
 
-7. **Forecasting: the honest finding.** Turn on the solar forecast and you see the
-   uncertainty band widen through the day, but the dispatch cost of getting it
-   wrong is about £0. The reason is that Agile prices are published a day ahead, so
-   the battery's main signal is certain and a small home battery mostly just
-   self-consumes. Forecast accuracy matters far more for committing the fleet's
-   flexibility to the grid than for a single home.
+7. **Price forecasting (the Piclo strategy).** Turn on "Forecast prices (MPC)".
+   The battery trades on prices forecast from the last few days of the same type,
+   weekday or weekend, then pays the real bill. The gap to the perfect plan is the
+   value of Agile's day-ahead prices. It's small for a 5.4 kWh home battery
+   because there's little arbitrage to get wrong, and it grows with battery size,
+   price volatility, and a shorter history window. The same forecast-vs-perfect
+   idea is what mattered most in the grid-scale Piclo work.
 
 8. **One home is small; the fleet is the product.** A single home offers a few
    kilowatts; twenty homes already aggregate into a dispatchable block at the
@@ -60,5 +61,5 @@ Eight things to speak from. Each is backed by something on screen.
 - Switch the period to the whole year to show the annual saving.
 - Swing panel facing from South to East and watch the solar curve and the saving.
 - Toggle "real weather" off and on to show it is driven by actual sun.
-- Turn on the solar forecast to make the honest forecasting point.
+- Turn on "Forecast prices (MPC)" and slide the history window to make the price-forecasting point.
 - Scroll to the fleet, push homes up, and read the megawatts and the flex income.

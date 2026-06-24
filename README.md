@@ -18,9 +18,10 @@ A deterministic engine (`sim-core.js`) does the physics and the money; the page
    over that period and an annual figure.
 3. **The fleet.** A reproducible population of homes aggregated into a single
    dispatchable flexibility figure (MW) with an estimated flexibility income.
-4. **Solar forecast.** An optional panel showing the solar forecast band widening
-   through the day, with the honest finding that forecast error costs almost
-   nothing for dispatch (see below).
+4. **Price-forecast MPC.** An optional panel that trades the day on prices
+   forecast from recent days of the same type (weekday vs weekend), settles the
+   bill on the real prices, and shows the gap, which is the value of having
+   Agile's day-ahead prices (see below).
 5. **Full breakdown.** A CFO-style table with every line behind the headline:
    the three baselines (no-asset bill, dumb solar+battery bill, smart-dispatch
    uplift), Gryd's P&L line by line summing to the margin, battery throughput,
@@ -90,14 +91,16 @@ half-hours, are excluded, so it is 363 days). The fleet annual is scaled from a
 set of representative real days and labelled as an estimate, because running the
 whole fleet over a year live would be too slow.
 
-### The solar forecast panel (honest finding)
+### Price-forecast MPC (what if you didn't have day-ahead prices)
 
-A rolling controller can only forecast solar and demand, not see them. The panel
-shows that forecast as a band that widens through the day. The notable result:
-the dispatch cost of getting the forecast wrong is about £0, because Agile prices
-(the main signal) are known a day ahead and a small home battery mostly just
-self-consumes its own solar. Forecast accuracy matters far more when committing a
-fleet's flexibility to the grid than for a single home's dispatch.
+Agile prices are published a day ahead, so the battery normally plans against
+known prices. This panel asks what happens without that: it forecasts the day's
+prices as the half-hourly average of the last N days of the same type (weekday or
+weekend, the approach that worked best in the source project), plans the day on
+that forecast, then settles the bill on the real prices. The gap to the
+perfect-foresight plan is the value of Agile publishing prices a day ahead. It is
+small for a 5.4 kWh home battery (little arbitrage to get wrong) and grows with
+battery size, price volatility, and a shorter history window.
 
 ## Economics (every assumption stated)
 
@@ -167,7 +170,7 @@ index.html          structure
 styles.css          brand theme (maroon / orange / green / cream, grain, Outfit)
 sim-core.js         pure engine: solar, load, dispatch, accounting, MPC, periods, fleet
 charts.js           dependency-free SVG charts (day + fleet flexibility)
-visuals.js          period saving chart + solar forecast band
+visuals.js          period saving chart + price-forecast (MPC) chart
 app.js              controls, periods, live data, GSAP motion
 data/dataset.json   bundled real Octopus + weather (offline)
 build_data.js       regenerates data/dataset.json

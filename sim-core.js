@@ -416,6 +416,24 @@
     return assembleSchedule(load, solar, actCharge, actDischarge, importPrice, exportPrice, bat);
   }
 
+  // Plan the day's dispatch on forecast prices (e.g. an average of recent days),
+  // then settle the bill on the real prices. Models trading without day-ahead
+  // Agile: you act on a price guess and live with the actual outcome.
+  function dispatchOnForecast(load, solar, importPrice, exportPrice, fcImport, fcExport, bat, opts) {
+    const degr = (opts && opts.degradationGbpPerMwh) || 20.0;
+    const { charge, discharge } = greedyPlan(load, solar, fcImport, fcExport, bat, bat.initialSoc, bat.initialSoc, degr);
+    return assembleSchedule(load, solar, charge, discharge, importPrice, exportPrice, bat);
+  }
+
+  // Element-wise mean of equal-length arrays (used to forecast prices from history).
+  function averageProfiles(arrays) {
+    if (!arrays.length) return null;
+    const n = arrays[0].length;
+    const out = zeros(n);
+    for (const a of arrays) for (let t = 0; t < n; t++) out[t] += a[t];
+    return out.map((v) => v / arrays.length);
+  }
+
   // per-home accounting
 
   // Is half-hour t inside the evening flexibility window [start, end) hours?
@@ -603,11 +621,32 @@
       };
     }
 
+    // Price-forecast MPC: plan the day on prices forecast from history (no
+    // day-ahead Agile), settle the bill on the real prices, and compare to the
+    // perfect plan. The gap is the value of having published day-ahead prices.
+    let priceMpc = null;
+    if (opts && opts.priceForecast && opts.priceForecast.import) {
+      const fcImp = opts.priceForecast.import;
+      const fcExp = opts.priceForecast.export || exportPrice;
+      const fcSch = dispatchOnForecast(load, solar, importPrice, exportPrice, fcImp, fcExp, bat, { degradationGbpPerMwh: econ.degradationGbpPerMwh });
+      const fcM = rawMetrics(load, solar, fcSch, importPrice, exportPrice, econ, bat);
+      priceMpc = {
+        forecastImport: fcImp,
+        forecastExport: fcExp,
+        perfectCostGbp: optM.operatingCostGbp,
+        forecastCostGbp: fcM.operatingCostGbp,
+        gapGbp: fcM.operatingCostGbp - optM.operatingCostGbp,
+        perfectSoc: optSch.soc,
+        forecastSoc: fcSch.soc,
+      };
+    }
+
     return {
       load,
       solar,
       weatherDriven,
       mpc,
+      priceMpc,
       importPrice,
       exportPrice,
       baseline: { schedule: baseSch, metrics: baseM },
@@ -777,6 +816,7 @@
           config: opts.config, economics: opts.economics, alpha: opts.alpha,
           dayOfYear: d.dayOfYear, useWeather: opts.useWeather,
           mpc: opts.mpc && i === repIdx ? opts.mpc : null,
+          priceForecast: opts.priceForecast && i === repIdx ? opts.priceForecast : null,
         }
       );
       const m = r.optimised.metrics;
@@ -849,6 +889,8 @@
     dumbSelfConsumption,
     dispatchPriceRank,
     mpcDispatch,
+    dispatchOnForecast,
+    averageProfiles,
     greedyPlan,
     flexHeadroom,
     rawMetrics,

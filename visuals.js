@@ -153,44 +153,37 @@
     el.innerHTML = s;
   }
 
-  // MPC: solar actual vs widening forecast band, and SoC perfect vs MPC
-  function renderForecast(el, cfg) {
-    const W = 820, H = 240, padL = 40, padR = 40, padT = 16, padB = 26;
+  // MPC: real Agile price vs a forecast built from history, plus the battery
+  // charge under each plan so you can see it act at different times.
+  function renderPriceMpc(el, cfg) {
+    const W = 820, H = 240, padL = 44, padR = 14, padT = 16, padB = 26;
     const x0 = padL, x1 = W - padR, y0 = padT, y1 = H - padB;
-    const solar = cfg.solar, n = solar.length;
-    const sigma = cfg.sigma || 0;
-    const socP = cfg.socPerfect, socM = cfg.socMpc, socCap = cfg.socCap || 10;
-    const smax = Math.max(0.5, ...solar) * 1.2;
+    const actual = cfg.actualPrice, fc = cfg.fcPrice, n = actual.length;
+    const socP = cfg.socPerfect, socF = cfg.socForecast, socCap = cfg.socCap || 10;
+    const pmax = Math.max(0.05, ...actual, ...fc) * 1.12;
     const hx = (i) => x0 + (i / (n - 1)) * (x1 - x0);
-    const yS = (v) => y1 - (v / smax) * (y1 - y0);
+    const yP = (v) => y1 - (v / pmax) * (y1 - y0);
     const ySoc = (v) => y1 - (v / socCap) * (y1 - y0);
-    let s = `<svg viewBox="0 0 ${W} ${H}" class="chart-svg" role="img" aria-label="Solar forecast band and battery charge under perfect versus forecast control"><style>.ax{font:10px var(--font-body);fill:var(--c-axis);}</style>`;
-    // time axis
+    const path = (arr, yfn) => arr.map((v, i) => (i ? "L" : "M") + hx(i).toFixed(1) + " " + yfn(v).toFixed(1)).join(" ");
+    let s = `<svg viewBox="0 0 ${W} ${H}" class="chart-svg" role="img" aria-label="Real Agile price versus a price forecast, and the battery charge under each"><style>.ax{font:10px var(--font-body);fill:var(--c-axis);}</style>`;
+    for (let k = 0; k <= 3; k++) {
+      const v = (pmax * k) / 3, y = yP(v);
+      s += `<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="rgba(135,40,35,0.08)"/>`;
+      s += `<text x="${x0 - 6}" y="${y + 3}" text-anchor="end" class="ax">£${v.toFixed(2)}</text>`;
+    }
     for (const t of [0, 6, 12, 18, 24]) {
       const x = x0 + (t / 24) * (x1 - x0);
-      s += `<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" stroke="rgba(135,40,35,0.08)"/>`;
       s += `<text x="${x}" y="${y1 + 16}" text-anchor="middle" class="ax">${t}:00</text>`;
     }
-    // widening forecast band around solar
-    const grow = (i) => Math.min(1.6, Math.sqrt((i * 0.5)));
-    const up = [], dn = [];
-    for (let i = 0; i < n; i++) {
-      const w = sigma * grow(i);
-      up.push({ i, v: solar[i] * (1 + w) });
-      dn.push({ i, v: Math.max(0, solar[i] * (1 - w)) });
-    }
-    const bandTop = up.map((p) => hx(p.i).toFixed(1) + " " + yS(p.v).toFixed(1)).join(" L");
-    const bandBot = dn.slice().reverse().map((p) => hx(p.i).toFixed(1) + " " + yS(p.v).toFixed(1)).join(" L");
-    if (sigma > 0) s += `<path d="M${bandTop} L${bandBot} Z" fill="rgba(232,163,61,0.22)" stroke="none"/>`;
-    // actual solar
-    s += `<path d="${solar.map((v, i) => (i ? "L" : "M") + hx(i).toFixed(1) + " " + yS(v).toFixed(1)).join(" ")}" fill="none" stroke="var(--c-solar)" stroke-width="2"/>`;
-    // SoC perfect vs mpc
-    const socPath = (arr) => arr.map((v, i) => (i ? "L" : "M") + hx(i).toFixed(1) + " " + ySoc(v).toFixed(1)).join(" ");
-    if (socP) s += `<path d="${socPath(socP)}" fill="none" stroke="var(--c-soc)" stroke-width="2"/>`;
-    if (socM) s += `<path d="${socPath(socM)}" fill="none" stroke="var(--c-soc)" stroke-width="2" stroke-dasharray="5 3" opacity="0.9"/>`;
+    // battery charge under each plan, faint
+    if (socP) s += `<path d="${path(socP, ySoc)}" fill="none" stroke="var(--c-soc)" stroke-width="1.5" opacity="0.5"/>`;
+    if (socF) s += `<path d="${path(socF, ySoc)}" fill="none" stroke="var(--c-soc)" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.5"/>`;
+    // forecast price (dashed) and real price (solid)
+    s += `<path d="${path(fc, yP)}" fill="none" stroke="var(--c-price)" stroke-width="2" stroke-dasharray="5 3" opacity="0.75"/>`;
+    s += `<path d="${path(actual, yP)}" fill="none" stroke="var(--c-price)" stroke-width="2.6"/>`;
     s += "</svg>";
     el.innerHTML = s;
   }
 
-  global.Visuals = { renderSchematic, renderFleetHouses, renderPeriod, renderForecast };
+  global.Visuals = { renderSchematic, renderFleetHouses, renderPeriod, renderPriceMpc };
 })(typeof window !== "undefined" ? window : this);

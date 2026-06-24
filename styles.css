@@ -184,8 +184,15 @@ input[type="range"].alpha::-moz-range-thumb { background: linear-gradient(90deg,
 .legend .sw.line { height: 0; border-top: 2.5px solid; }
 
 .dual { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 22px; }
-.mpc-note { margin: 12px 0 0; padding-top: 12px; border-top: var(--hair); font-size: 0.86rem; color: var(--ink-soft); line-height: 1.5; }
+.mpc-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; border-top: var(--hair); padding-top: 12px; }
+.mcell { display: flex; flex-direction: column; gap: 2px; }
+.mk { font-size: 0.72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.03em; }
+.mv { font-family: var(--font-head); font-weight: 600; font-size: 1.2rem; font-variant-numeric: tabular-nums; color: var(--maroon); }
+.mv.orange { color: var(--orange); }
+.mpc-note { margin: 10px 0 0; font-size: 0.84rem; color: var(--ink-soft); line-height: 1.5; }
 .mpc-note b { color: var(--maroon); font-weight: 600; }
+.chart-note { margin: 8px 0 0; font-size: 0.8rem; color: var(--ink-soft); line-height: 1.5; }
+.legend .sw.dash { height: 0; border-top: 2.5px dashed; }
 
 .cfo-card { margin-top: 22px; }
 .cfo { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px 32px; margin-top: 8px; }

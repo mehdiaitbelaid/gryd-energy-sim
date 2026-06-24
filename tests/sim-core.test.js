@@ -300,5 +300,24 @@ const { load, solar } = result;
   check("missing/invalid region does not crash the fleet", ok, msg);
 })();
 
+// 17. Price-forecast MPC: planning on forecast prices never beats knowing them.
+(function () {
+  const idx = DATA.dates.indexOf(DATE);
+  const prior = [];
+  for (let j = idx - 1; j >= 0 && prior.length < 7; j--) {
+    const r = DATA.regions.C[DATA.dates[j]];
+    if (r) prior.push(r);
+  }
+  const fcImport = S.averageProfiles(prior.map((r) => r.i));
+  const fcExport = S.averageProfiles(prior.map((r) => r.e));
+  const r = S.runHome(
+    { import: C.import, export: C.export, ghi: DATA.weather[DATE].ghi, dayOfYear: doy(DATE) },
+    { alpha: 0.5, useWeather: true, priceForecast: { import: fcImport, export: fcExport } }
+  );
+  check("forecast-price dispatch costs >= perfect (real-price) dispatch",
+    r.priceMpc.forecastCostGbp >= r.priceMpc.perfectCostGbp - 1e-6, r.priceMpc.gapGbp);
+  check("price-forecast gap is finite", isFinite(r.priceMpc.gapGbp));
+})();
+
 console.log("\n" + passed + " passed, " + failed + " failed");
 process.exit(failed === 0 ? 0 : 1);

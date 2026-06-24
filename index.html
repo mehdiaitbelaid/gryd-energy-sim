@@ -117,12 +117,12 @@
           <label class="check"><input type="checkbox" id="weather" autocomplete="off" checked /> Real weather</label>
         </div>
         <div class="field">
-          <span class="field-tag">Forecast</span>
-          <label class="check"><input type="checkbox" id="mpc" autocomplete="off" /> Show solar forecast</label>
+          <span class="field-tag">Controller</span>
+          <label class="check"><input type="checkbox" id="mpc" autocomplete="off" /> Forecast prices (MPC)</label>
         </div>
         <div class="field" id="ferror-field">
-          <label for="ferror">Forecast error <span class="val" id="ferror-val">30%</span></label>
-          <input type="range" autocomplete="off" id="ferror" min="0" max="80" step="5" value="30" />
+          <label for="ferror">Forecast from <span class="val" id="ferror-val">7 days</span></label>
+          <input type="range" autocomplete="off" id="ferror" min="1" max="14" step="1" value="7" />
         </div>
       </div>
     </div>
@@ -178,6 +178,7 @@
         </div>
         <div id="home-chart"></div>
         <div class="legend" id="home-legend"></div>
+        <p class="chart-note">Left axis is power in kW. Right axis is the price in £/kWh, the bold dark-red line. Dashed lines are the battery charge level and grid import; both spike rather than curve.</p>
       </div>
 
       <div class="dual">
@@ -191,10 +192,15 @@
         </div>
         <div class="chart-card" id="mpc-card">
           <div class="chart-title">
-            <h3>Solar forecast vs actual</h3>
-            <span class="hint" id="mpc-hint">turn on “Show solar forecast”</span>
+            <h3>MPC: forecast prices vs real Agile</h3>
+            <span class="hint" id="mpc-hint">turn on “Forecast prices (MPC)”</span>
           </div>
           <div id="mpc-chart"></div>
+          <div class="mpc-stats" id="mpc-stats" style="display:none;">
+            <div class="mcell"><span class="mk">Cost on real prices</span><b class="mv" id="mpc-perfect">£0.00</b></div>
+            <div class="mcell"><span class="mk">Cost trading the forecast</span><b class="mv" id="mpc-cost">£0.00</b></div>
+            <div class="mcell"><span class="mk">Value of day-ahead prices</span><b class="mv orange" id="mpc-gap">£0.00</b></div>
+          </div>
           <p class="mpc-note" id="mpc-note" style="display:none;"></p>
           <div class="legend" id="mpc-legend"></div>
         </div>
